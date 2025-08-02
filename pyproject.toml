@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcpdoc-split"
-version = "0.2.0"
+version = "0.2.1"
 description = "Split large markdown files into smaller documents with TOC generation"
-authors = [{name = "Your Name", email = "your.email@example.com"}]
+authors = [{name = "dmmeteo", email = "dmmeteo@example.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "markdown-it-py>=3.0.0",
 ]
@@ -24,8 +24,8 @@ dev = [
 mcpdoc-split = "mcpdoc_split.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/django-styleguide-mcp"
-Repository = "https://github.com/yourusername/django-styleguide-mcp"
+Homepage = "https://github.com/dmmeteo/django-styleguide-mcp"
+Repository = "https://github.com/dmmeteo/django-styleguide-mcp"
 
 [tool.ruff]
 line-length = 88

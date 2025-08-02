@@ -1,0 +1,44 @@
+name: Auto-merge dependabot submodule PRs
+
+on:
+  pull_request:
+    types: [labeled]
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    
+    # Triggers only for Dependabot PRs with successfully updated documentation
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      contains(github.event.pull_request.labels.*.name, 'submodule') &&
+      contains(github.event.pull_request.labels.*.name, 'docs-updated')
+    
+    steps:
+      - name: Enable auto-merge for Dependabot PR
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          pull-request-number: ${{ github.event.pull_request.number }}
+          merge-method: squash
+
+      - name: Auto-approve PR
+        run: gh pr review --approve "${{ github.event.pull_request.number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add auto-merge comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🤖 **Auto-merge enabled!**\n\nThis Dependabot PR has been set to auto-merge after:\n- ✅ Successful submodule update\n- ✅ Documentation regeneration completed\n- ✅ All required status checks pass\n\nThe PR will be automatically merged when all conditions are met.'
+            });

@@ -3,6 +3,7 @@
 import sys
 from unittest.mock import patch, MagicMock
 from io import StringIO
+import pytest
 
 from mcpdoc_split.cli import parse_args, main
 
@@ -58,24 +59,38 @@ class TestParseArgs:
                 "mcpdoc-split",
                 "input.md",
                 "-o",
-                "output",
+                "out",
                 "-u",
-                "https://test.com",
+                "https://example.org",
                 "-b",
-                "/guide",
+                "/docs",
                 "-m",
                 "3",
                 "-t",
-                "table.md",
+                "toc.md",
             ],
         ):
             args = parse_args()
             assert args.input_file == "input.md"
-            assert args.output_dir == "output"
-            assert args.url_prefix == "https://test.com"
-            assert args.base_path == "/guide"
+            assert args.output_dir == "out"
+            assert args.url_prefix == "https://example.org"
+            assert args.base_path == "/docs"
             assert args.max_level == 3
-            assert args.toc_file == "table.md"
+            assert args.toc_file == "toc.md"
+
+    def test_version_arg(self):
+        """Test parsing --version argument."""
+        with patch.object(sys, "argv", ["mcpdoc-split", "--version"]):
+            args = parse_args()
+            assert args.version is True
+            assert args.input_file is None
+
+    def test_splash_arg(self):
+        """Test parsing --splash argument."""
+        with patch.object(sys, "argv", ["mcpdoc-split", "--splash"]):
+            args = parse_args()
+            assert args.splash is True
+            assert args.input_file is None
 
 
 class TestMain:
@@ -141,3 +156,43 @@ class TestMain:
                     main()
                 except SystemExit as e:
                     assert e.code == 0
+
+    def test_version_shows_splash(self):
+        """Test that --version shows splash screen and version."""
+        with patch.object(sys, "argv", ["mcpdoc-split", "--version"]):
+            with patch.object(sys, "stdout", new=StringIO()) as mock_stdout:
+                try:
+                    main()
+                except SystemExit as e:
+                    assert e.code == 0
+
+                output = mock_stdout.getvalue()
+                assert "███" in output  # Check for ASCII art
+                assert "mcpdoc-split" in output
+                assert "0.2.1" in output
+
+    def test_splash_shows_splash(self):
+        """Test that --splash shows splash screen."""
+        with patch.object(sys, "argv", ["mcpdoc-split", "--splash"]):
+            with patch.object(sys, "stdout", new=StringIO()) as mock_stdout:
+                try:
+                    main()
+                except SystemExit as e:
+                    assert e.code == 0
+                
+                output = mock_stdout.getvalue()
+                assert "███" in output  # Check for ASCII art
+                assert "mcpdoc-split" in output
+                assert "Split large markdown files" in output
+
+    def test_missing_input_file_error(self):
+        """Test that missing input file when not using special flags shows error."""
+        with patch.object(sys, "argv", ["mcpdoc-split", "--output-dir", "test"]):
+            with patch.object(sys, "stderr", new=StringIO()) as mock_stderr:
+                try:
+                    main()
+                except SystemExit as e:
+                    assert e.code == 1
+                
+                error_output = mock_stderr.getvalue()
+                assert "input_file is required" in error_output

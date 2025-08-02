@@ -1,6 +1,6 @@
 version = 1
 revision = 2
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 
 [[package]]
 name = "colorama"
@@ -34,7 +34,7 @@ wheels = [
 
 [[package]]
 name = "mcpdoc-split"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "markdown-it-py" },

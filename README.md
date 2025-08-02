@@ -23,6 +23,18 @@ This repository takes the original [Django Styleguide](https://github.com/dmmete
 - 🔄 **Automatic updates** when the original styleguide changes
 - 🤖 **AI-friendly format** for MCP servers
 
+## Automation Features
+
+This repository includes full automation through GitHub Actions and Dependabot:
+
+- 🔄 **Weekly automatic submodule updates** via Dependabot
+- 📚 **Automatic documentation regeneration** when submodule changes  
+- ✅ **Automatic testing** on every update
+- 🚀 **Auto-merge** for successful updates (tests pass + docs updated)
+- 🎨 **CLI splash screen** for enhanced user experience
+
+All updates happen automatically - you get fresh Django Styleguide documentation without any manual work.
+
 ## Example generated documentation
 
 After processing you get this structure:

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mcpdoc_split._version import __version__
 from mcpdoc_split.main import generate_docs
+from mcpdoc_split.splash import SPLASH
 
 
 EPILOG = """
@@ -26,6 +27,12 @@ Examples:
 
   # Split only top-level headers (H1 and H2)
   mcpdoc-split README.md --max-level 3
+
+  # Show version with ASCII art splash screen
+  mcpdoc-split --version
+
+  # Show ASCII art splash screen
+  mcpdoc-split --splash
 """
 
 
@@ -46,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     )
 
     # Main input argument
-    parser.add_argument("input_file", help="Path to the markdown file to split")
+    parser.add_argument("input_file", nargs="?", help="Path to the markdown file to split")
 
     # Output options
     parser.add_argument(
@@ -84,9 +91,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--version",
         "-V",
-        action="version",
-        version=f"mcpdoc-split {__version__}",
+        action="store_true",
         help="Show version information and exit",
+    )
+
+    # Splash screen
+    parser.add_argument(
+        "--splash",
+        action="store_true",
+        help="Show ASCII art splash screen and exit",
     )
 
     return parser.parse_args()
@@ -106,14 +119,39 @@ def main() -> None:
         help_parser.add_argument(
             "--version",
             "-V",
-            action="version",
-            version=f"mcpdoc-split {__version__}",
+            action="store_true",
             help="Show version information and exit",
+        )
+        help_parser.add_argument(
+            "--splash",
+            action="store_true",
+            help="Show ASCII art splash screen and exit",
         )
         help_parser.print_help()
         sys.exit(0)
 
     args = parse_args()
+
+    # Handle version
+    if args.version:
+        print(SPLASH)
+        print(f"mcpdoc-split {__version__}")
+        print("Split large markdown files into smaller documents with TOC generation")
+        print()
+        sys.exit(0)
+
+    # Handle splash screen
+    if args.splash:
+        print(SPLASH)
+        print(f"mcpdoc-split {__version__}")
+        print("Split large markdown files into smaller documents with TOC generation")
+        print()
+        sys.exit(0)
+
+    # Check if input_file is required
+    if not args.input_file:
+        print("Error: input_file is required when not using --version or --splash", file=sys.stderr)
+        sys.exit(1)
 
     # Validate input file exists
     input_path = Path(args.input_file)
