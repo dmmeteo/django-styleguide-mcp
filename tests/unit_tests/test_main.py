@@ -8,8 +8,8 @@ from pathlib import Path
 from mcpdoc_split.main import (
     generate_filename,
     generate_anchor_link,
-    extract_headers_from_toc,
-    transform_toc_links,
+    extract_heading_text,
+    save_section_by_lines,
     generate_docs,
 )
 
@@ -62,77 +62,71 @@ class TestGenerateAnchorLink:
         assert generate_anchor_link("") == "#"
 
 
-class TestExtractHeadersFromToc:
-    """Test the extract_headers_from_toc function."""
+class TestExtractHeadingText:
+    """Test the extract_heading_text function."""
 
-    def test_simple_toc(self):
-        """Test extracting headers from simple TOC."""
-        toc = """- [Introduction](#introduction)
-- [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [Usage](#usage)"""
+    def test_extract_heading_text(self):
+        """Test extracting heading text from tokens."""
+        # Mock tokens structure
+        class MockToken:
+            def __init__(self, token_type, content=None):
+                self.type = token_type
+                self.content = content
 
-        headers = extract_headers_from_toc(toc)
+        tokens = [
+            MockToken("heading_open"),
+            MockToken("inline", "Test Header"),
+            MockToken("heading_close"),
+        ]
 
-        assert len(headers) == 4
-        assert headers[0] == {
-            "title": "Introduction",
-            "level": 1,
-            "anchor": "#introduction",
+        result = extract_heading_text(tokens, 0)
+        assert result == "Test Header"
+
+    def test_extract_heading_text_not_found(self):
+        """Test when heading text is not found."""
+        class MockToken:
+            def __init__(self, token_type, content=None):
+                self.type = token_type
+                self.content = content
+
+        tokens = [
+            MockToken("heading_open"),
+            MockToken("other_token"),
+        ]
+
+        result = extract_heading_text(tokens, 0)
+        assert result is None
+
+
+class TestSaveSectionByLines:
+    """Test the save_section_by_lines function."""
+
+    def test_save_section_basic(self):
+        """Test basic section saving."""
+        content_lines = [
+            "# Header",
+            "This is content.",
+            "More content.",
+            "## Next Header"
+        ]
+        
+        section = {
+            "filename": "test.md",
+            "start_line": 0,
+            "end_line": 3
         }
-        assert headers[1] == {
-            "title": "Getting Started",
-            "level": 1,
-            "anchor": "#getting-started",
-        }
-        assert headers[2] == {
-            "title": "Installation",
-            "level": 2,
-            "anchor": "#installation",
-        }
-        assert headers[3] == {"title": "Usage", "level": 2, "anchor": "#usage"}
-
-    def test_empty_toc(self):
-        """Test empty TOC."""
-        headers = extract_headers_from_toc("")
-        assert headers == []
-
-    def test_malformed_toc(self):
-        """Test malformed TOC."""
-        toc = "This is not a valid TOC"
-        headers = extract_headers_from_toc(toc)
-        assert headers == []
-
-
-class TestTransformTocLinks:
-    """Test the transform_toc_links function."""
-
-    def test_simple_transformation(self):
-        """Test simple link transformation."""
-        toc = "- [Introduction](#introduction)\n- [Getting Started](#getting-started)"
-        file_mapping = {
-            "#introduction": "introduction.md",
-            "#getting-started": "getting-started.md",
-        }
-        url_prefix = "https://example.com"
-        base_path = "/docs"
-
-        transformed = transform_toc_links(toc, file_mapping, url_prefix, base_path)
-
-        expected = "- [Introduction](https://example.com/docs/introduction.md)\n- [Getting Started](https://example.com/docs/getting-started.md)"
-        assert transformed == expected
-
-    def test_no_matching_anchors(self):
-        """Test transformation with no matching anchors."""
-        toc = "- [Introduction](#introduction)"
-        file_mapping = {}
-        url_prefix = "https://example.com"
-        base_path = "/docs"
-
-        transformed = transform_toc_links(toc, file_mapping, url_prefix, base_path)
-
-        # Should remain unchanged
-        assert transformed == toc
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            save_section_by_lines(section, content_lines, temp_dir)
+            
+            output_file = Path(temp_dir) / "test.md"
+            assert output_file.exists()
+            
+            with open(output_file, 'r') as f:
+                saved_content = f.read()
+            
+            expected_content = "# Header\nThis is content.\nMore content."
+            assert saved_content == expected_content
 
 
 class TestGenerateDocs:
@@ -178,6 +172,8 @@ Advanced topics.
             temp_file = f.name
 
         with tempfile.TemporaryDirectory() as temp_dir:
+            toc_file = os.path.join(temp_dir, "test_toc.txt")
+            
             try:
                 generate_docs(
                     input_file=temp_file,
@@ -185,6 +181,7 @@ Advanced topics.
                     url_prefix="https://test.com",
                     base_path="/test",
                     max_level=2,
+                    toc_file=toc_file,
                 )
 
                 # Check that files were created
@@ -194,13 +191,88 @@ Advanced topics.
                 # Should have at least some files
                 assert len(files) >= 2
 
-                # Check that llms.txt was created
-                llms_file = Path("llms.txt")
-                assert llms_file.exists()
+                # Check that custom TOC file was created
+                assert Path(toc_file).exists()
 
-                # Clean up llms.txt
-                if llms_file.exists():
-                    llms_file.unlink()
+                # Check TOC content
+                with open(toc_file, 'r') as f:
+                    toc_content = f.read()
+                
+                assert "# Table of Contents" in toc_content
+                assert "https://test.com/test/" in toc_content
+
+            finally:
+                os.unlink(temp_file)
+
+    def test_custom_toc_file_path(self):
+        """Test custom TOC file path with subdirectory."""
+        markdown_content = """# Test Header
+Test content.
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write(markdown_content)
+            temp_file = f.name
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # TOC file in subdirectory
+            toc_subdir = os.path.join(temp_dir, "subdir")
+            toc_file = os.path.join(toc_subdir, "custom_toc.md")
+            
+            try:
+                generate_docs(
+                    input_file=temp_file,
+                    output_dir=temp_dir,
+                    toc_file=toc_file,
+                )
+
+                # Check that TOC file was created in subdirectory
+                assert Path(toc_file).exists()
+                assert Path(toc_subdir).exists()
+
+            finally:
+                os.unlink(temp_file)
+
+    def test_max_level_filtering(self):
+        """Test that max_level properly filters headers."""
+        markdown_content = """# Level 1
+Content 1.
+
+## Level 2
+Content 2.
+
+### Level 3
+Content 3.
+
+#### Level 4
+Content 4.
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write(markdown_content)
+            temp_file = f.name
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            toc_file = os.path.join(temp_dir, "toc.txt")
+            
+            try:
+                # Test with max_level=2 (should include H1 and H2 only)
+                generate_docs(
+                    input_file=temp_file,
+                    output_dir=temp_dir,
+                    max_level=2,
+                    toc_file=toc_file,
+                )
+
+                # Check TOC content
+                with open(toc_file, 'r') as f:
+                    toc_content = f.read()
+                
+                # Should include Level 1 and Level 2, but not Level 3 and Level 4
+                assert "Level 1" in toc_content
+                assert "Level 2" in toc_content
+                assert "Level 3" not in toc_content
+                assert "Level 4" not in toc_content
 
             finally:
                 os.unlink(temp_file)

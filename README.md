@@ -11,14 +11,15 @@ This repository takes the original [Django Styleguide](https://github.com/dmmete
 ## How it works
 
 1. **Git submodule**: We include the original Django Styleguide as a submodule
-2. **Automatic splitting**: CLI tool splits the large README.md into separate files by sections  
-3. **llms.txt generation**: Creates an index file with absolute URLs for each section
+2. **AST-based splitting**: CLI tool uses markdown-it-py to parse and split the large README.md into separate files by sections  
+3. **Configurable TOC generation**: Creates an index file (llms.txt by default) with absolute URLs for each section
 4. **Ready for consumption**: MCP servers can easily access the documentation
 
 ## What you get
 
-- 📄 **18 separate files** with Django best practices (Models, Services, APIs, etc.)
-- 🔗 **llms.txt index** with direct links to GitHub raw content
+- 📄 **20+ separate files** with Django best practices (Models, Services, APIs, etc.)
+- 🔗 **Configurable TOC file** with direct links to GitHub raw content
+- ⚡ **AST-based parsing** for reliable and fast processing
 - 🔄 **Automatic updates** when the original styleguide changes
 - 🤖 **AI-friendly format** for MCP servers
 
@@ -104,11 +105,12 @@ Documentation automatically updates when the original Django Styleguide changes:
 # 1. Git submodule automatically updates
 git submodule update --remote django-styleguide
 
-# 2. Regenerate documentation  
+# 2. Regenerate documentation with new CLI options
 uv run python -m mcpdoc_split.cli django-styleguide/README.md \
     --url-prefix "https://raw.githubusercontent.com/dmmeteo/django-styleguide-mcp/main" \
     --base-path "/docs" \
-    --max-level 2
+    --max-level 2 \
+    --toc-file llms.txt
 
 # 3. Commit changes
 git add docs/ llms.txt
@@ -137,25 +139,59 @@ uv run python -m mcpdoc_split.cli django-styleguide/README.md
 uv run pytest
 ```
 
+## CLI Usage
+
+The `mcpdoc-split` CLI tool offers flexible options for customizing the documentation generation:
+
+```bash
+# Basic usage
+uv run python -m mcpdoc_split.cli django-styleguide/README.md
+
+# Custom output directory and TOC file
+uv run python -m mcpdoc_split.cli django-styleguide/README.md \
+    --output-dir documentation \
+    --toc-file table-of-contents.md
+
+# Full customization with URL structure
+uv run python -m mcpdoc_split.cli django-styleguide/README.md \
+    --url-prefix "https://mysite.com" \
+    --base-path "/guide" \
+    --max-level 3 \
+    --toc-file docs/index.md
+
+# Only split top-level sections (H1 and H2)
+uv run python -m mcpdoc_split.cli django-styleguide/README.md --max-level 2
+```
+
 ## Project structure
 
 ```text
 mcpdoc_split/           # CLI tool for splitting documentation
-├── cli.py              # Command line interface
-├── main.py             # File splitting logic
+├── cli.py              # Command line interface with configurable options
+├── main.py             # AST-based file splitting logic using markdown-it-py
 └── ...
 
 django-styleguide/      # Git submodule of original styleguide
 docs/                   # Generated documentation files  
-llms.txt               # Index for MCP servers
-tests/                 # Tests
+llms.txt               # Configurable index file for MCP servers
+tests/                 # Comprehensive test suite
 ```
 
 ## Acknowledgments
 
 - [Django Styleguide](https://github.com/dmmeteo/Django-Styleguide) by HackSoft for excellent Django practices
+- [markdown-it-py](https://github.com/executablebooks/markdown-it-py) for reliable markdown parsing with AST support
 - [mcpdoc](https://github.com/langchain-ai/mcpdoc) by LangChain for MCP server inspiration
 - [Model Context Protocol](https://github.com/modelcontextprotocol) for the MCP specification
+
+## Technical Details
+
+This tool uses a **single-pass AST algorithm** for optimal performance:
+
+1. **markdown-it-py** parses the markdown into an Abstract Syntax Tree (AST)
+2. **One-pass processing** simultaneously generates TOC and section files
+3. **Line-based content extraction** ensures perfect formatting preservation
+4. **Configurable output** supports custom TOC file paths and URL structures
 
 ## Related projects
 

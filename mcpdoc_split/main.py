@@ -4,9 +4,9 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 
-from md_toc import api as md_toc
+from markdown_it import MarkdownIt
 
 
 def generate_docs(
@@ -15,9 +15,11 @@ def generate_docs(
     url_prefix: str = "https://example.com",
     base_path: str = "/docs",
     max_level: int = 6,
+    toc_file: str = "llms.txt",
 ) -> None:
     """
     Split a large markdown file into smaller files and generate TOC with absolute URLs.
+    Uses a single-pass algorithm through the AST for maximum efficiency.
 
     Args:
         input_file: Path to the large markdown file to split
@@ -25,6 +27,7 @@ def generate_docs(
         url_prefix: URL prefix for absolute links (e.g., "https://example.com")
         base_path: Base path for docs (e.g., "/docs")
         max_level: Maximum header level to split at (1=H1, 2=H2, 3=H3, etc.)
+        toc_file: Path to the TOC file to generate (default: "llms.txt")
 
     Raises:
         FileNotFoundError: If input file doesn't exist
@@ -51,156 +54,118 @@ def generate_docs(
     except UnicodeDecodeError as e:
         raise ValueError(f"Unable to read file {input_file}: {e}")
 
-    # Build initial TOC using md_toc
+    # Parse markdown to AST
+    md = MarkdownIt("commonmark")
+    tokens = md.parse(content)
+
+    # Single-pass algorithm: parse AST and generate files + TOC simultaneously
+    sections_generated = 0
+    
+    # Ensure TOC directory exists
+    toc_dir = os.path.dirname(toc_file)
+    if toc_dir and not os.path.exists(toc_dir):
+        Path(toc_dir).mkdir(parents=True, exist_ok=True)
+    
     try:
-        toc = md_toc.build_toc(input_file, parser="github")
+        with open(toc_file, "w", encoding="utf-8") as toc_file_handle:
+            toc_file_handle.write("# Table of Contents\n\n")
+            
+            current_section = None
+            content_lines = content.split('\n')
+            section_starts = []  # Store all section start positions
+            
+            # First pass: collect all section starts
+            for i, token in enumerate(tokens):
+                if token.type == "heading_open" and int(token.tag[1]) <= max_level:
+                    header_text = extract_heading_text(tokens, i)
+                    if header_text and hasattr(token, 'map') and token.map:
+                        section_starts.append({
+                            "line": token.map[0],
+                            "header": header_text,
+                            "level": int(token.tag[1]),
+                            "filename": generate_filename(header_text)
+                        })
+            
+            # Second pass: generate sections and TOC
+            for idx, section_info in enumerate(section_starts):
+                # Write to TOC
+                level = section_info["level"]
+                header_text = section_info["header"]
+                filename = section_info["filename"]
+                url = f"{url_prefix.rstrip('/')}{base_path.rstrip('/')}/{filename}"
+                indent = "  " * (level - 1)
+                toc_file_handle.write(f"{indent}- [{header_text}]({url})\n")
+                
+                # Determine section boundaries
+                start_line = section_info["line"]
+                if idx + 1 < len(section_starts):
+                    end_line = section_starts[idx + 1]["line"]
+                else:
+                    end_line = len(content_lines)
+                
+                # Save section
+                section = {
+                    "filename": filename,
+                    "header": header_text,
+                    "level": level,
+                    "start_line": start_line,
+                    "end_line": end_line
+                }
+                save_section_by_lines(section, content_lines, output_dir)
+                sections_generated += 1
+                
     except Exception as e:
-        raise ValueError(f"Failed to build TOC from {input_file}: {e}")
-
-    # Extract headers from TOC and use them to parse sections
-    sections = parse_sections_from_toc(content, toc)
-
-    # Filter sections by header level
-    filtered_sections = [s for s in sections if s["header"] and s["level"] <= max_level]
-
-    if not filtered_sections:
-        print(f"Warning: No sections found with header level <= {max_level}")
-        return
-
-    # Generate individual files for each section
-    file_mapping = {}
-    for section in filtered_sections:
-        if section["header"]:
-            filename = generate_filename(section["header"])
-            filepath = os.path.join(output_dir, filename)
-
-            # Write section content to file
-            try:
-                with open(filepath, "w", encoding="utf-8") as f:
-                    f.write(section["content"])
-            except Exception as e:
-                print(f"Warning: Failed to write file {filepath}: {e}")
-                continue
-
-            # Store mapping for TOC transformation using anchor from TOC
-            anchor = section.get("anchor", generate_anchor_link(section["header"]))
-            file_mapping[anchor] = filename
-
-    # Transform TOC with absolute URLs
-    transformed_toc = transform_toc_links(toc, file_mapping, url_prefix, base_path)
-
-    # Save the transformed TOC
-    toc_path = "llms.txt"
-    try:
-        with open(toc_path, "w", encoding="utf-8") as f:
-            f.write("# Table of Contents\n\n")
-            f.write(transformed_toc)
-    except Exception as e:
-        print(f"Warning: Failed to write TOC file {toc_path}: {e}")
+        print(f"Warning: Failed to write TOC file {toc_file}: {e}")
 
     print(f"Documentation generated successfully!")
     print(f"Files saved to: {output_dir}")
-    print(f"TOC saved to: {toc_path}")
-    print(
-        f"Generated {len(filtered_sections)} files (filtered by max_level={max_level})"
-    )
+    print(f"TOC saved to: {toc_file}")
+    print(f"Generated {sections_generated} files (filtered by max_level={max_level})")
 
 
-def parse_sections_from_toc(content: str, toc: str) -> List[Dict]:
+def extract_heading_text(tokens: List, heading_open_idx: int) -> Optional[str]:
     """
-    Parse markdown content into sections using the TOC generated by md_toc.
-    This is more reliable as it uses the same logic as md_toc for finding headers.
-
+    Extract heading text from tokens starting at heading_open token.
+    
     Args:
-        content: The full markdown content
-        toc: TOC string generated by md_toc.build_toc()
-
+        tokens: List of all tokens
+        heading_open_idx: Index of heading_open token
+        
     Returns:
-        List of dictionaries with 'header', 'level', 'content', and 'anchor' keys
+        Heading text or None if not found
     """
-    # Extract header information from TOC
-    headers_info = extract_headers_from_toc(toc)
-
-    if not headers_info:
-        return []
-
-    lines = content.split("\n")
-    sections = []
-
-    # Find the actual header lines in content
-    header_positions = []
-    for i, line in enumerate(lines):
-        stripped_line = line.strip()
-        for header_info in headers_info:
-            # Check if this line matches a header from TOC
-            header_pattern = r"^#{1,6}\s+" + re.escape(header_info["title"])
-            if re.match(header_pattern, stripped_line):
-                header_positions.append(
-                    {
-                        "line_num": i,
-                        "header": header_info["title"],
-                        "level": header_info["level"],
-                        "anchor": header_info["anchor"],
-                    }
-                )
-                break
-
-    # Split content into sections based on header positions
-    for i, header_pos in enumerate(header_positions):
-        start_line = header_pos["line_num"]
-
-        # Find end line (next header or end of file)
-        if i < len(header_positions) - 1:
-            end_line = header_positions[i + 1]["line_num"]
-        else:
-            end_line = len(lines)
-
-        # Extract section content
-        section_lines = lines[start_line:end_line]
-        section_content = "\n".join(section_lines)
-
-        sections.append(
-            {
-                "header": header_pos["header"],
-                "level": header_pos["level"],
-                "content": section_content,
-                "anchor": header_pos["anchor"],
-            }
-        )
-
-    return sections
+    # Look for the inline token that contains the heading text
+    for i in range(heading_open_idx + 1, min(heading_open_idx + 3, len(tokens))):
+        token = tokens[i]
+        if token.type == "inline":
+            return token.content
+    return None
 
 
-def extract_headers_from_toc(toc: str) -> List[Dict]:
+def save_section_by_lines(section: Dict, content_lines: List[str], output_dir: str) -> None:
     """
-    Extract header information from TOC string.
-
+    Save a section to file using line-based approach for perfect reconstruction.
+    
     Args:
-        toc: TOC string from md_toc.build_toc()
-
-    Returns:
-        List of dictionaries with 'title', 'level', and 'anchor' keys
+        section: Section dictionary with line positions
+        content_lines: All lines from the original content
+        output_dir: Output directory path
     """
-    headers = []
-
-    for line in toc.split("\n"):
-        if not line.strip():
-            continue
-
-        # Parse TOC line: "  - [Header Title](#anchor-link)"
-        # Count leading spaces before the dash to determine level
-        match = re.match(r"^(\s*)-\s+\[([^\]]+)\]\((#[^)]+)\)", line)
-        if match:
-            leading_spaces = len(match.group(1))
-            title = match.group(2)
-            anchor = match.group(3)
-
-            # Calculate level: no spaces = level 1, 2 spaces = level 2, 4 spaces = level 3, etc.
-            level = (leading_spaces // 2) + 1
-
-            headers.append({"title": title, "level": level, "anchor": anchor})
-
-    return headers
+    filepath = os.path.join(output_dir, section["filename"])
+    
+    try:
+        start_line = section["start_line"]
+        end_line = section.get("end_line", len(content_lines))
+        
+        # Extract section content directly from original lines
+        section_lines = content_lines[start_line:end_line]
+        content = "\n".join(section_lines).strip()
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+            
+    except Exception as e:
+        print(f"Warning: Failed to write file {filepath}: {e}")
 
 
 def generate_filename(header_text: str) -> str:
@@ -261,40 +226,3 @@ def generate_anchor_link(header_text: str) -> str:
     anchor = anchor.strip("-")
 
     return f"#{anchor}"
-
-
-def transform_toc_links(
-    toc: str, file_mapping: Dict[str, str], url_prefix: str, base_path: str
-) -> str:
-    """
-    Transform TOC anchor links to absolute URLs.
-
-    Args:
-        toc: Original TOC string with anchor links
-        file_mapping: Mapping from anchor links to filenames
-        url_prefix: URL prefix (e.g., "https://example.com")
-        base_path: Base path for docs (e.g., "/docs")
-
-    Returns:
-        Transformed TOC with absolute URLs
-    """
-    transformed_toc = toc
-
-    # Pattern to match markdown links with anchors
-    link_pattern = r"\[([^\]]+)\]\((#[^)]+)\)"
-
-    def replace_link(match):
-        link_text = match.group(1)
-        anchor = match.group(2)
-
-        if anchor in file_mapping:
-            filename = file_mapping[anchor]
-            absolute_url = f"{url_prefix.rstrip('/')}{base_path.rstrip('/')}/{filename}"
-            return f"[{link_text}]({absolute_url})"
-
-        # If no mapping found, keep original
-        return match.group(0)
-
-    transformed_toc = re.sub(link_pattern, replace_link, transformed_toc)
-
-    return transformed_toc

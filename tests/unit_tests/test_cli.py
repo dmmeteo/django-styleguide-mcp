@@ -19,6 +19,7 @@ class TestParseArgs:
             assert args.url_prefix == "https://example.com"
             assert args.base_path == "/docs"
             assert args.max_level == 6
+            assert args.toc_file == "llms.txt"
 
     def test_all_args(self):
         """Test parsing all arguments."""
@@ -36,6 +37,8 @@ class TestParseArgs:
                 "/guide",
                 "--max-level",
                 "2",
+                "--toc-file",
+                "custom_toc.md",
             ],
         ):
             args = parse_args()
@@ -44,6 +47,7 @@ class TestParseArgs:
             assert args.url_prefix == "https://test.com"
             assert args.base_path == "/guide"
             assert args.max_level == 2
+            assert args.toc_file == "custom_toc.md"
 
     def test_short_args(self):
         """Test parsing short arguments."""
@@ -60,7 +64,9 @@ class TestParseArgs:
                 "-b",
                 "/guide",
                 "-m",
-                "2",
+                "3",
+                "-t",
+                "table.md",
             ],
         ):
             args = parse_args()
@@ -68,7 +74,8 @@ class TestParseArgs:
             assert args.output_dir == "output"
             assert args.url_prefix == "https://test.com"
             assert args.base_path == "/guide"
-            assert args.max_level == 2
+            assert args.max_level == 3
+            assert args.toc_file == "table.md"
 
 
 class TestMain:

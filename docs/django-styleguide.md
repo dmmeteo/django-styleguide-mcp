@@ -1,15 +1,78 @@
-## Django Styleguide in the Wild
+# Django Styleguide
 
-Here's a collection of different folks & companies, that have found the styleguide useful:
+> 👀 **Need help with your Django project?** [HackSoft is here for you](https://www.hacksoft.io/solutions/django?utm_source=django-styleguide&utm_medium=web&utm_campaign=Django-Campaign). Reach out at `consulting@hacksoft.io`
 
----
+![Django Styleguide](logo.png)
 
-**Michael Valencia, CTO at [Facturedo](https://facturedo.com/)**
+**Table of contents:**
 
-> The source code of our core project in Facturedo started to get messy.
-> Business logic could be found in many, incoherent places. We needed a solution to structure our Django project and we found it in the Django Styleguide.
->
-> We recommend it to anyone wanting to structure a medium to large-sized project.
-> It's a well defined guide that's constantly evolving.
+<!-- toc -->
 
----
+- [How to ask a question or propose something?](#how-to-ask-a-question-or-propose-something)
+- [What is this?](#what-is-this)
+- [How to use it?](#how-to-use-it)
+- [Overview](#overview)
+- [Why not?](#why-not)
+- [Cookie Cutter](#cookie-cutter)
+- [Models](#models)
+  - [Base model](#base-model)
+  - [Validation - `clean` and `full_clean`](#validation---clean-and-full_clean)
+  - [Validation - constraints](#validation---constraints)
+  - [Properties](#properties)
+  - [Methods](#methods)
+  - [Testing](#testing)
+- [Services](#services)
+  - [Example - function-based service](#example---function-based-service)
+  - [Example - class-based service](#example---class-based-service)
+  - [Naming convention](#naming-convention)
+  - [Modules](#modules)
+  - [Selectors](#selectors)
+  - [Testing](#testing-1)
+- [APIs & Serializers](#apis--serializers)
+  - [Naming convention](#naming-convention-1)
+  - [Class-based vs. Function-based](#class-based-vs-function-based)
+  - [List APIs](#list-apis)
+    - [Plain](#plain)
+    - [Filters + Pagination](#filters--pagination)
+  - [Detail API](#detail-api)
+  - [Create API](#create-api)
+  - [Update API](#update-api)
+  - [Fetching objects](#fetching-objects)
+  - [Nested serializers](#nested-serializers)
+  - [Advanced serialization](#advanced-serialization)
+- [Urls](#urls)
+- [Settings](#settings)
+  - [Prefixing environment variables with `DJANGO_`](#prefixing-environment-variables-with-django_)
+  - [Integrations](#integrations)
+  - [Reading from `.env`](#reading-from-env)
+- [Errors & Exception Handling](#errors--exception-handling)
+  - [How exception handling works (in the context of DRF)](#how-exception-handling-works-in-the-context-of-drf)
+    - [DRF's `ValidationError`](#drfs-validationerror)
+    - [Django's `ValidationError`](#djangos-validationerror)
+  - [Describe how your API errors are going to look like.](#describe-how-your-api-errors-are-going-to-look-like)
+  - [Know how to change the default exception handling behavior.](#know-how-to-change-the-default-exception-handling-behavior)
+  - [Approach 1 - Use DRF's default exceptions, with very little modifications.](#approach-1---use-drfs-default-exceptions-with-very-little-modifications)
+  - [Approach 2 - HackSoft's proposed way](#approach-2---hacksofts-proposed-way)
+  - [More ideas](#more-ideas)
+- [Testing](#testing-2)
+  - [Overview](#overview-1)
+  - [Naming conventions](#naming-conventions)
+  - [Factories](#factories)
+- [Celery](#celery)
+  - [The basics](#the-basics)
+  - [Error handling](#error-handling)
+  - [Configuration](#configuration)
+  - [Structure](#structure)
+  - [Periodic Tasks](#periodic-tasks)
+  - [Beyond](#beyond)
+- [Cookbook](#cookbook)
+  - [Handling updates with a service](#handling-updates-with-a-service)
+- [DX (Developer Experience)](#dx-developer-experience)
+  - [`mypy` / type annotations](#mypy--type-annotations)
+  - [MCP Documentation Server](#mcp-documentation-server)
+    - [Setting up MCP Documentation Server](#setting-up-mcp-documentation-server)
+- [Django Styleguide in the Wild](#django-styleguide-in-the-wild)
+- [Additional resources / Alternatives](#additional-resources--alternatives)
+- [Inspiration](#inspiration)
+
+<!-- tocstop -->

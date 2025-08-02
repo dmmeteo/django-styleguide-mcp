@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcpdoc-split"
-version = "0.1.0"
+version = "0.2.0"
 description = "Split large markdown files into smaller documents with TOC generation"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.13"
 dependencies = [
-    "md-toc>=8.0.0",
+    "markdown-it-py>=3.0.0",
 ]
 
 [project.optional-dependencies]

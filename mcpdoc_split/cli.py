@@ -14,14 +14,15 @@ Examples:
   # Basic usage - split README.md into docs/ directory
   mcpdoc-split README.md
 
-  # Specify custom output directory
-  mcpdoc-split README.md --output-dir documentation
+  # Specify custom output directory and TOC file
+  mcpdoc-split README.md --output-dir documentation --toc-file toc.md
 
   # Generate with custom URL structure  
   mcpdoc-split README.md \\
     --url-prefix https://mysite.com \\
     --base-path /guide \\
-    --max-level 6
+    --max-level 6 \\
+    --toc-file docs/table-of-contents.md
 
   # Split only top-level headers (H1 and H2)
   mcpdoc-split README.md --max-level 3
@@ -50,6 +51,10 @@ def parse_args() -> argparse.Namespace:
     # Output options
     parser.add_argument(
         "--output-dir", "-o", default="docs", help="Output directory for split files"
+    )
+    
+    parser.add_argument(
+        "--toc-file", "-t", default="llms.txt", help="Path to the TOC file to generate"
     )
 
     # URL generation options
@@ -132,6 +137,7 @@ def main() -> None:
             url_prefix=args.url_prefix,
             base_path=args.base_path,
             max_level=args.max_level,
+            toc_file=args.toc_file,
         )
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
