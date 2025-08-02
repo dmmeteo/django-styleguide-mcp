@@ -1,0 +1,3 @@
+[submodule "django-styleguide"]
+	path = django-styleguide
+	url = https://github.com/dmmeteo/Django-Styleguide.git
